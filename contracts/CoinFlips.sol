@@ -9,7 +9,7 @@ contract CoinFlips {
     uint constant HOUSE_FEE_PERCENT = 5;    // 수수료 퍼센트
     uint constant HOUSE_MIN_FEE = 0.005 ether;  // 최소 수수료 금액
 
-    address public owner;
+    address payable public owner;
     uint public lockedInBets;
 
 
@@ -19,12 +19,12 @@ contract CoinFlips {
         uint8 numOfBetBit;    // 플레이어가 선택한 면의 개수
         uint placeBlockNumber;  // 플레이어가 베팅한 거래 정보가 담긴 블록 번호
         uint8 mask; // 플레이어가 선택한 동전 면
-        address gambler;    // 플레이어의 계정주소
+        address payable gambler;    // 플레이어의 계정주소
     }
 
     mapping (address => Bet) bets;
 
-    event Reveal(uint reveal);  // 1 or 2
+    event Reveal(address indexed gambler, uint reveal, uint amount);//1 or 2
     event Payment(address indexed beneficiary, uint amount);
     event FailedPayment(address indexed beneficiary, uint amount);
 
@@ -39,18 +39,17 @@ contract CoinFlips {
     }
 
     // 이더리움 인출 메소드
-    function withdrawFunds(address beneficary, uint withdrawAmount) external onlyOwner {
-        // 인출할 수 있는 금액보다 작거나 같은 경우만 인출 가능
+    function withdrawFunds(address payable beneficiary, uint withdrawAmount) external onlyOwner {
         require (withdrawAmount + lockedInBets <= address(this).balance, "larger than balance.");
-        sendFunds(beneficary, withdrawAmount);
+        sendFunds(beneficiary, withdrawAmount);
     }
 
     // 이더리움 전송 메소드
-    function sendFunds(address beneficiary, uint amount) private {
-        if(beneficiary.send(amount)) {
+    function sendFunds(address payable beneficiary, uint amount) private {
+        if (beneficiary.send(amount)) {
             emit Payment(beneficiary, amount);
-        }
-        else {
+        } else {
+            // 실패하는 경우 대책은?
             emit FailedPayment(beneficiary, amount);
         }
     }
@@ -67,7 +66,6 @@ contract CoinFlips {
     // 플레이어가 화면의 베팅 버튼을 클릭했을 때 호출하는 매소드
     function placeBet(uint8 betMask) external payable { // payable로 선언해서 얼마를 배팅했는지는 전달하지 않음
         uint amount = msg.value;
-
 
         require(amount >= MIN_BET && amount <= MAX_BET, "Amount is out of range.");
         require(betMask > 0 && betMask < 256, "Mask should be 8 bit");
@@ -94,7 +92,7 @@ contract CoinFlips {
         lockedInBets += possibleWinningAmount;
 
         require(lockedInBets < address (this).balance, "Cannot afford to pay the bet.");
-        }
+    }
 
     // pure는 이 메소드가 계정의 상태정보에 영향을 주지 않는 메소드라는 의미 (생략가능)
     function getWinningAmount(uint amount, uint8 numOfBetBit) private pure returns (uint winningAmount) {
@@ -112,38 +110,39 @@ contract CoinFlips {
     }
 
     // 플레이어에게 결과를 알려주는 함수
-    function revealResult(uint8 seed) external {
+    function revealResult() external {
+
         Bet storage bet = bets[msg.sender];
         uint amount = bet.amount;
         uint8 numOfBetBit = bet.numOfBetBit;
         uint placeBlockNumber = bet.placeBlockNumber;
-        address gambler = bet.gambler;
+        address payable gambler = bet.gambler;
 
-        require(amount > 0, "Bet should be in an 'active' state");
+        require (amount > 0, "Bet should be in an active state");
+
         // 베팅에 해당하는 블록이 결과에 해당하는 블록보다 먼저 생성되어야 하는 것을 검토하는 require
         require(block.number > placeBlockNumber, "revealResult in the same block as placeBet, or before.");
 
-        // 난수
-        bytes32 random = keccak256(abi.encodePacked(blockhas(block.number - seed), blockhash(placeBlockNumber)));
-
-        uint reveal = uint(random) %MAX_CASE;   // 0 or 1
+        // 난수 생성
+        bytes32 random = keccak256(abi.encodePacked(blockhash(block.number), blockhash(placeBlockNumber)));
+        uint reveal = uint(random) % MAX_CASE; // 0 or 1
 
         uint winningAmount = 0;
-        uint possibleWinningAmount =0;
+        uint possibleWinningAmount = 0;
         possibleWinningAmount = getWinningAmount(amount, numOfBetBit);
 
-        if((2 ** reveal) & bet.mask != 0) {
+        if ((2 ** reveal) & bet.mask != 0) {
             winningAmount = possibleWinningAmount;
         }
 
-        emit Reveal(2 ** reveal);
-
-        if(winningAmount > 0) {
-            sendFunds(gambler, winningAmount);
-        }
+        emit Reveal(gambler, 2 ** reveal, winningAmount);
 
         lockedInBets -= possibleWinningAmount;
         clearBet(msg.sender);
+
+        if (winningAmount > 0) {
+            sendFunds(gambler, winningAmount);
+        }
     }
 
     // 항목들 null로 세팅하는 메소드
@@ -162,26 +161,25 @@ contract CoinFlips {
 
     // 결과 확인 전에 환불하는 메소드
     function refundBet() external {
-        require(block.number > bet.placeBlocknumber, "refundBet in the same block as placeBet, or Before");
-
         Bet storage bet = bets[msg.sender];
-        uint amount = bet.amount;
-
-        require (amount > 0, "Bet should be in an 'active' state");
 
         uint8 numOfBetBit = bet.numOfBetBit;
+        uint amount = bet.amount;
+        address payable gambler = bet.gambler;
 
-        // 환불
-        sendFunds(bet.gambler, amount);
+        require(block.number > bet.placeBlockNumber, "refundBet in the same block as placeBet, or before.");
+        require(amount > 0, "Bet should be in an active state");
 
         uint possibleWinningAmount;
         possibleWinningAmount = getWinningAmount(amount, numOfBetBit);
 
         lockedInBets -= possibleWinningAmount;
         clearBet(msg.sender);
+
+        sendFunds(gambler, amount);
     }
 
-    function checkHouseFund() public view only Owner returns(uint) {
+    function checkHouseFund() public view onlyOwner returns(uint) {
         return address(this).balance;
     }
 
@@ -193,7 +191,6 @@ contract CoinFlips {
         }
         return count;
     }
-
 
 }
 

@@ -1,0 +1,36 @@
+
+.custom-align-center {
+    text-align: center;
+    font-size: large;
+}
+
+.image-box {
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    margin:0 auto;
+}
+.image-thumbnail {
+    width:60%;
+    height:60%;
+    object-fit:cover;
+}
+
+/* 이미지 두 개 옆으로 나란히*/
+.two-image-align {
+    float:left;
+    padding: 10px;
+    width:50%;
+}
+
+.product-title {
+    text-align:center;
+    display:table;
+    width:280px;
+    height:250px;
+}
+
+.product-img-div {
+    display:table-cell;
+    vertical-align:middle;
+}

@@ -11,9 +11,10 @@
     margin:0 auto;
 }
 .image-thumbnail {
-    width:60%;
-    height:60%;
+    width:30%;
+    height:30%;
     object-fit:cover;
+    margin:0 auto;
 }
 
 /* 이미지 두 개 옆으로 나란히*/
@@ -22,6 +23,19 @@
     padding: 10px;
     width:50%;
 }
+
+.background {
+    width:100%;
+    height:100%;
+    background-color: blue;
+}
+
+.background-image {
+    width:100%;
+    height:100%;
+    background-image: url("/client/public/doge.png");
+}
+
 
 .product-title {
     text-align:center;

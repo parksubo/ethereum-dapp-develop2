@@ -5,7 +5,7 @@ import getWeb3 from "./getWeb3";
 import "./App.css";
 
 // 이미지 import
-import logo from "./logo.svg";
+import logo from "./logo.svg";  //  사용 예 <img src = {logo} className="App-logo"/>
 
 class App extends Component {
 /*
@@ -61,8 +61,10 @@ class App extends Component {
     return (
       <div className="App">
         <header>
-            <img src = {logo} className="App-logo"/>
-            <h1>Hello, React!</h1>
+            <div class="image-box">
+                <img class="image-thumbnail" src="dogeRocket.gif" alt="" />
+            </div>
+            <h1>Flip Coins, Go Mars!</h1>
         </header>
       </div>
     );
